@@ -1,0 +1,55 @@
+#Install Roles   
+​Add-WindowsFeature Hyper-V,Failover-Clustering,Multipath-IO -IncludeManagementTools -Restart
+
+#Run Commands
+DiskPerf -Y​
+reg.exe ADD HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v EnableLUA /t REG_DWORD /d 0 /f
+reg.exe ADD HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f
+REG ADD "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A7-37EF-4b3f-8CFC-4F3A74704073}" /v "IsInstalled" /t REG_DWORD /d 0 /f 
+REG ADD "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A8-37EF-4b3f-8CFC-4F3A74704073}" /v "IsInstalled" /t REG_DWORD /d 0 /f
+reg.exe ADD HKLM\SOFTWARE\Microsoft\Ole\AppCompat /v RequireIntegrityActivationAuthenticationLevel /t REG_DWORD /d 0 /f
+REG ADD "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f
+netsh advfirewall set  allprofiles state off
+attrib +h "C:\PerfLogs"
+attrib +h "C:\cpqsystem"
+
+#​Rename network adapters
+​Rename-NetAdapter -Name "Embededd LOM 1 Port 1" -NewName DP1
+Rename-NetAdapter -Name "Embededd LOM 1 Port 2" -NewName DP2
+
+#Create vSwitch, Virutal Adapters and set VLANs
+​New-VMSwitch -Name Switch1 -AllowManagementOS $False -NetAdapterName DP1,DP2 -EnableEmbeddedTeaming $True
+Set-VMSwitchTeam -Name Switch1 -LoadBalancingAlgorithm Dynamic
+Add-VMNetworkAdapter -ManagementOS -Name MGMT
+Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName MGMT -Access -VlanId 0
+Add-VMNetworkAdapter -ManagementOS -Name Cluster
+​Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName Cluster -Access -VlanId 2
+
+#Set VM Adapter Mapping
+Set-vmnetworkAdapterTeamMapping -ManagementOS -SwitchName Switch1 -VMNetworkAdapterName MGMT -PhysicalNetAdapterName DP1
+Set-vmnetworkAdapterTeamMapping -ManagementOS -SwitchName Switch1 -VMNetworkAdapterName Cluster -PhysicalNetAdapterName DP2
+
+#Set Virtual Machine Queues
+Set-NetadapterVMQ -Name DP1 -BaseProcessorNumber 2
+Set-NetadapterVMQ -Name DP2 -BaseProcessorNumber 10 
+Set-NetadapterVMQ -Name DP1 -MaxProcessorNumber 8
+Set-NetadapterVMQ -Name DP2 -MaxProc​essorNumber 14
+
+#Disable RDMA
+Set-NetAdapterRDMA -Enabled $False​
+
+#Configure iSCSI
+Set-NetAdapterAdvancedProperty -Name "iSCSI-1" -RegistryKeyword "*JumboPacket" -RegistryValue 9014​​
+test with:   Ping x.x.x.x -f -l 8192
+
+#Configure MultiPath
+mpclaim -r -i -a
+
+#Add to Domain and Rename
+​​Add-Computer -DomainName school.local -Credential administrator
+Rename-Computer -NewName SCH-HV1 -restart
+
+#AD Kerberos Delegation
+Get-ADComputer SCH-HV1 | Set-ADObject -Add @{"msDS-AllowedToDelegateTo"="Microsoft Virtual System Migration Service/SCH-HV2.School.Local", "cifs/SCH-HV2.School.Local","Microsoft Virtual System Migration Service/SCH-HV2","cifs/SCH-HV2"}
+Get-ADComputer SCH-HV2 | Set-ADObject -Add @{"msDS-AllowedToDelegateTo"="Microsoft Virtual System Migration Service/SCH-HV1.School.Local", "cifs/SCH-HV1.School.Local​","Microsoft Virtual System Migration Service/SCH-HV1","cifs/SCH-HV1"}
+
