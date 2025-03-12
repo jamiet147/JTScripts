@@ -1,0 +1,8 @@
+#Single VM
+Get-VM SCH-SERVER1 | Remove-VMSnapshot
+
+#All VMs
+Get-VM -Name * | Remove-VMSnapshot
+
+#Check Status of Merge
+Get-VM
