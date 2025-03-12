@@ -1,0 +1,8 @@
+#Method 1
+Export-DhcpServer -ComputerName "DC1.domain.local" -File "C:\MCL\DHCP\dhcpexport.xml"
+Import-DhcpServer -ComputerName "DC01.domain.local" -File "C:\MCL\DHCP\dhcpexport.xml" -BackupPath "C:\MCL\DHCP\dhcpbackup\" -Leases
+
+
+#Method 2
+netsh dhcp server export C:\MCL\DHCP\dhcp.txt
+netsh dhcp server import C:\MCL\DHCP\dhcp.txt
