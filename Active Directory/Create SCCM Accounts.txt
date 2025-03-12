@@ -1,0 +1,25 @@
+#Create accounts used by SCCM
+
+
+
+$OU = "OU=Service Accounts,OU=Misc,OU=Users,OU=The School Name,DC=SCHOOL,DC=internal"
+
+
+
+New-ADUser -Name "SA-SCSQL" -UserPrincipalName "SA-SCSQL" -SamAccountName "SA-SCSQL" -GivenName "SA-SCSQL" -DisplayName "SA-SCSQL" -Description "Service Account: SCSQL" -Path $OU -AccountPassword (ConvertTo-SecureString "S3cur3-Pa55w0rd-H3r£" -AsPlainText -Force) -Enabled $True -PasswordNeverExpires $True -PassThru 
+
+
+New-ADUser -Name "SA-SCCM-CP" -UserPrincipalName "SA-SCCM-CP" -SamAccountName "SA-SCCM-CP" -GivenName "SA-SCCM-CP" -DisplayName "SA-SCCM-CP" -Description "Service Account: SCCM - Client Push" -Path $OU -AccountPassword (ConvertTo-SecureString "S3cur3-Pa55w0rd-H3r£" -AsPlainText -Force) -Enabled $True -PasswordNeverExpires $True -PassThru 
+
+
+New-ADUser -Name "SA-SCCM-NA" -UserPrincipalName "SA-SCCM-NA" -SamAccountName "SA-SCCM-NA" -GivenName "SA-SCCM-NA" -DisplayName "SA-SCCM-NA" -Description "Service Account: SCCM - Network Access" -Path $OU -AccountPassword (ConvertTo-SecureString "S3cur3-Pa55w0rd-H3r£" -AsPlainText -Force) -Enabled $True -PasswordNeverExpires $True -PassThru 
+
+
+New-ADUser -Name "SA-SCCM-RS" -UserPrincipalName "SA-SCCM-RS" -SamAccountName "SA-SCCM-RS" -GivenName "SA-SCCM-RS" -DisplayName "SA-SCCM-RS" -Description "Service Account: SCCM - Reporting Services" -Path $OU -AccountPassword (ConvertTo-SecureString "S3cur3-Pa55w0rd-H3r£" -AsPlainText -Force) -Enabled $True -PasswordNeverExpires $True -PassThru 
+
+
+New-ADUser -Name "SA-SCCM-JD" -UserPrincipalName "SA-SCCM-JD" -SamAccountName "SA-SCCM-JD" -GivenName "SA-SCCM-JD" -DisplayName "SA-SCCM-JD" -Description "Service Account: SCCM - Join Domain" -Path $OU -AccountPassword (ConvertTo-SecureString "S3cur3-Pa55w0rd-H3r£" -AsPlainText -Force) -Enabled $True -PasswordNeverExpires $True -PassThru 
+
+
+
+Add-ADGroupMember -Identity "Domain Admins" -Members SA-SCSQL,SA-SCCM-CP,SA-SCCM-RS,SA-SCCM-JD
