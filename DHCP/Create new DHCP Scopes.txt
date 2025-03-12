@@ -1,0 +1,10 @@
+#Create Scope
+Add-DhcpServerv4Scope -Name ‘VLAN 13 - Building3’ -StartRange 10.10.13.10 -EndRange 10.10.13.240 -SubnetMask 255.255.255.0 -Description ‘VLAN 13’ –cn SCH-DC1
+Add-DhcpServerv4Scope -Name ‘VLAN 14 - Building4’ -StartRange 10.10.14.10 -EndRange 10.10.14.240 -SubnetMask 255.255.255.0 -Description ‘VLAN 14’ –cn SCH-DC1
+Add-DhcpServerv4Scope -Name ‘VLAN 15 - Building5’ -StartRange 10.10.15.10 -EndRange 10.10.15.240 -SubnetMask 255.255.255.0 -Description ‘VLAN 15’ –cn SCH-DC1
+
+
+#Set gateway/router
+Set-DhcpServerv4OptionValue -ComputerName "SCH-DC1" -ScopeId 10.10.13.0 -Router 10.10.13.254
+Set-DhcpServerv4OptionValue -ComputerName "SCH-DC1" -ScopeId 10.10.14.0 -Router 10.10.14.254
+Set-DhcpServerv4OptionValue -ComputerName "SCH-DC1" -ScopeId 10.10.15.0 -Router 10.10.15.254
