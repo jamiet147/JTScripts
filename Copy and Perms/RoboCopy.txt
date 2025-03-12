@@ -15,5 +15,3 @@ ROBOCOPY /MIR /SEC /S /DCOPY:T /R:0 "\\OLD-SERVER\F$\Media" "E:\Shared Drives\Me
 /MIR = Mirror directory (Source server is always first, Otherwise you will copy an empty folder)
 
 
-
-
