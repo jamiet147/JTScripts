@@ -1,8 +1,14 @@
 #Move FSMO roles to a new server
-
 Move-ADDirectoryServerOperationMasterRole -Identity "SCH-DC1" -OperationMasterRole 0,1,2,3,4
-
 
 
 #Check Roles
 NetDOM /query FSMO
+
+
+#Roles
+0 = PDC Emulator
+1 = RID Master
+2 = Infrastructure Master
+3 = Schema Master
+4 = Domain Naming Master
