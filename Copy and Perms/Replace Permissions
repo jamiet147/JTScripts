@@ -1,0 +1,10 @@
+#Replace Permissions
+icacls E:\User Data\Staff\Home Areas\Staff1 /grant DOMAIN\Staff1:(OI)(CI)M
+icacls E:\User Data\Staff\Home Areas\Staff2 /grant DOMAIN\Staff2:(OI)(CI)M
+icacls E:\User Data\Staff\Home Areas\Staff3 /grant DOMAIN\Staff3:(OI)(CI)M
+
+#Replace Owner
+icacls E:\User Data\Staff\Home Areas\Staff1 /setowner DOMAIN\Staff1 /T
+icacls E:\User Data\Staff\Home Areas\Staff2 /setowner DOMAIN\Staff2 /T
+icacls E:\User Data\Staff\Home Areas\Staff3 /setowner DOMAIN\Staff3 /T
+
