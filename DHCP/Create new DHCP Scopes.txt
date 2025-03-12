@@ -13,3 +13,15 @@ Set-DhcpServerv4OptionValue -ComputerName "SCH-DC1" -ScopeId 10.10.15.0 -Router 
 Add-DnsServerPrimaryZone -NetworkID “10.10.13.0/24” -ReplicationScope Domain
 Add-DnsServerPrimaryZone -NetworkID “10.10.14.0/24” -ReplicationScope Domain
 Add-DnsServerPrimaryZone -NetworkID “10.10.15.0/24” -ReplicationScope Domain
+
+#Set DNS Server
+Set-DhcpServerv4OptionValue -DnsServer 10.10.70.30,10.10.70.31 
+
+#Set Domain Name
+Set-DhcpServerv4OptionValue -DnsDomain "school.local" 
+
+#Set Time Server
+Set-DhcpServerv4OptionValue -option 004 -Value 10.10.70.30
+
+#Set NTP
+Set-DhcpServerv4OptionValue -option 042 -Value 10.10.70.30​​
