@@ -1,0 +1,9 @@
+#Export list of computer accounts not logged on or seen in the last 365 days
+$datecutoff = (Get-Date).AddDays(-365)
+Get-ADComputer  -Properties LastLogonDate -Filter {LastLogonDate -lt $datecutoff} | Sort LastLogonDate | FT Name, LastLogonDate -Autosize | Out-File C:\MCL\ComputerLastLogonDate.txt
+
+
+#Disable computer accounts not logged on or seen in the last 365 days
+$datecutoff = (Get-Date).AddDays(-365)
+Get-ADComputer -Properties LastLogonDate -Filter {LastLogonData -lt $datecutoff} | Set-ADComputer -Enabled $false
+
