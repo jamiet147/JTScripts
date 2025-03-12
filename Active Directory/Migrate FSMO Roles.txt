@@ -1,0 +1,8 @@
+#Move FSMO roles to a new server
+
+Move-ADDirectoryServerOperationMasterRole -Identity "SCH-DC1" -OperationMasterRole 0,1,2,3,4
+
+
+
+#Check Roles
+NetDOM /query FSMO
