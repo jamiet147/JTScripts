@@ -1,0 +1,19 @@
+#Copy, excluding any files with the name "how to get data.txt"
+ROBOCOPY /MIR /R:0 "\\OLD-SERVER\Photos" "\\NEW-SERVER\Media$\Photos" /XF how to get data.txt
+
+#Copy, excluding any files with the name "desktop.ini" and create log file
+ROBOCOPY /S /DCOPY:T /SEC /R:0 "\\OLD-SERVER\Photos" "\\NEW-SERVER\Media$\Photos" /XF desktop.ini /log+:C:\MCL\Robo.txt /TEE
+
+#Copy, with permissions 
+ROBOCOPY /MIR /SEC /S /DCOPY:T /R:0 "\\OLD-SERVER\F$\Media" "E:\Shared Drives\Media" /XF desktop.ini /XF DS_Store /XF .DS_Store /XD Caches /XD Spotlight-V100 /XD RECYCLER /XD $RECYCLE.BIN /log+:C:\MCL\Robo\Shared-Media.txt /TEE
+
+
+#Notes
+/SEC = Include permissions
+/XF  = Exclude File
+/XD  = Exclude Directory
+/MIR = Mirror directory (Source server is always first, Otherwise you will copy an empty folder)
+
+
+
+
