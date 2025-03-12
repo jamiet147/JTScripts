@@ -1,0 +1,25 @@
+@ECHO OFF
+
+set SwitchPW="Sw1tch5_Pwd_Here"
+set LocalDir="C:\MCL\SwitchConfig"
+set LogLocation="C:\MCL\SwitchConfigLogs\"
+
+
+
+
+md %LocalDir%
+md %LogLocation%
+
+
+md %LocalDir%\10.10.200.254
+"C:\MCL\SwitchConfig\WinSCP.exe" /console /command "open sftp://manager:%SwitchPW%@10.10.200.254:22" "synchronize local -criteria=either %LocalDir%\10.10.200.254\ /cfg/" "exit"
+
+md %LocalDir%\10.10.200.10
+"C:\MCL\SwitchConfig\WinSCP.exe" /console /command "open sftp://manager:%SwitchPW%@10.10.200.10:22" "synchronize local -criteria=either %LocalDir%\10.10.200.10\ /cfg/" "exit"
+
+md %LocalDir%\10.10.200.11
+"C:\MCL\SwitchConfig\WinSCP.exe" /console /command "open sftp://manager:%SwitchPW%@10.10.200.11:22" "synchronize local -criteria=either %LocalDir%\10.10.200.11\ /cfg/" "exit"
+
+
+
+echo %DATE%, %TIME% >> %LogLocation%\Log-Switches.log
