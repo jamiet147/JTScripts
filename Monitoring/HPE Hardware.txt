@@ -1,0 +1,34 @@
+@echo off
+IF EXIST "C:\hp\hpdiags" GOTO RunHPChecks ELSE GOTO End
+
+
+:RunHPChecks
+
+"C:\hp\hpdiags\hpdiags.exe" -rd -o C:\Temp\HPHardware.xml -f
+
+
+type "C:\Temp\HPHardware.xml"  | findstr "fail.htm" > NUL
+
+if %errorlevel% EQU 0 (
+CLS
+    echo ^<-Start Result-^>
+    echo CSMON_ResultMessage=Warning: Hardware Failure, Check HP System Management Homepage
+    echo ^<-End Result-^>
+
+)
+
+if %errorlevel% NEQ 0 (
+CLS
+    echo "it hasn't found any failures"
+)
+
+
+
+
+GOTO End
+
+
+
+
+:End
+
