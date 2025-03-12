@@ -1,0 +1,21 @@
+@echo off
+
+
+IF EXIST "C:\Program Files\Compaq\hpacucli\bin" GOTO CheckArrayConfig ELSE GOTO End
+IF EXIST "C:\Program Files\HP\hpssacli\bin" GOTO CheckSmartStorage ELSE GOTO End
+
+
+
+:CheckArrayConfig
+"C:\Program Files\Compaq\hpacucli\bin\hpacucli.exe" ctrl all show config | find /i "failed" 
+GOTO End
+
+:CheckSmartStorage
+"C:\Program Files\HP\hpssacli\bin\hpssacli.exe" ctrl all show config | find /i "failed"
+GOTO End
+
+
+
+:End
+
+Echo: Compelted
