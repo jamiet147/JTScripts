@@ -7,3 +7,9 @@ Import-Module ADDSDeployment
 
 #Move FSMO Roles
 Move-ADDirectoryServerOperationMasterRole -Identity "SCH-DC1" -OperationMasterRole 0,1,2,3,4
+
+#​Raise Domain Functional Level
+​Set-ADDomainMode -identity SCHOOL.Internal -DomainMode Windows2016Domain
+
+#Raise Domain Functional Level
+Set-ADForestMode -Identity SCHOOL.Internal -ForestMode Windows2016Forest
