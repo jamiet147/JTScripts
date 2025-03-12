@@ -1,0 +1,1 @@
+ Get-EventLog -LogName Security -InstanceId 4625 -After (Get-Date).AddHours(-24) | Measure-Object | select Count
