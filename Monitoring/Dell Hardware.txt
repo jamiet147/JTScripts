@@ -1,0 +1,42 @@
+@echo off
+
+
+IF EXIST "C:\Program Files\Dell\SysMgt\oma\bin" GOTO RunDellChecks ELSE GOTO End
+
+
+
+
+
+:RunDellChecks
+
+
+"C:\Program Files\Dell\SysMgt\oma\bin\omreport.exe" chassis >> C:\Temp\DellHardware.txt
+"C:\Program Files\Dell\SysMgt\oma\bin\omreport.exe" storage pdisk controller=0 >>C:\Temp\DellHardware.txt
+
+
+type "C:\Temp\DellHardware.txt"  | findstr "Failed" > NUL
+
+if %errorlevel% EQU 0 (
+CLS
+    echo ^<-Start Result-^>
+    echo CSMON_ResultMessage=Warning: Hardware Failure, Check Dell OpenManage Software
+    echo ^<-End Result-^>
+exit /B 1
+)
+
+if %errorlevel% NEQ 0 (
+CLS
+    echo "it hasn't found any failures"
+exit /B 0
+)
+
+
+
+
+GOTO End
+
+
+
+
+:End
+
