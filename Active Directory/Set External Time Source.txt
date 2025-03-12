@@ -1,0 +1,8 @@
+#Check current time source
+w32tm /query /source
+
+#Stop NTP Service
+net stop w32time
+
+#Start NTP Service
+net start w32time
