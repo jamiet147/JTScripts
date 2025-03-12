@@ -1,0 +1,19 @@
+#Backup a dumb device (router/firewall)
+
+
+@echo off
+
+set RootPW="MyS3cur3Pa55w0rd"
+set Host="firewall.domain.local"
+set LocalDir="V:\MCL\FirewallBackup\"
+set RemoteDir="/var/archive"
+set LogLocation="C:\MCL\MCLBackups\"
+
+
+md %LocalDir%
+md %LogLocation%
+
+"C:\MCL\MCLBackups\WinSCP.exe" /console /command "open scp://root:%RootPW%@%Host%:222" "synchronize local -criteria=either %LocalDir% %RemoteDir%" "exit"
+
+
+echo %DATE%, %TIME% >> %LogLocation%\Log-FirewallBackup.log
