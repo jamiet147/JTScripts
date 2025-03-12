@@ -1,0 +1,9 @@
+#Install Windows Roles
+​Install-WindowsFeature -Name AD-Domain-Services,DHCP,DNS,RSAT-Feature-Tools-BitLocker-BdeAducExt -IncludeManagementTools
+
+#Promote to DC
+Import-Module ADDSDeployment
+​Install-ADDSDomainController -NoGlobalCatalog:$false -CreateDnsDelegation:$false -CriticalReplicationOnly:$false -DomainName "SCHOOL.Internal" -SafeModeAdministratorPassword (ConvertTo-SecureString 'R3$t0r3' -AsPlainText -Force)​ 
+
+#Move FSMO Roles
+Move-ADDirectoryServerOperationMasterRole -Identity "SCH-DC1" -OperationMasterRole 0,1,2,3,4
