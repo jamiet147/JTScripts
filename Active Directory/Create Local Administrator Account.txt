@@ -1,0 +1,7 @@
+#Create Account
+net user /add MCLAdmin S3cure-P@55w0rd-H£r$
+
+#Add to administrator group
+net localgroup administrators MCLAdmin /add
+
+
