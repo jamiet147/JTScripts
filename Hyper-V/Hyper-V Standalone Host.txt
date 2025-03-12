@@ -16,3 +16,11 @@ attrib +h "C:\cpqsystem"
 #​Rename network adapters
 ​Rename-NetAdapter -Name "Embededd LOM 1 Port 1" -NewName DP1
 Rename-NetAdapter -Name "Embededd LOM 1 Port 2" -NewName DP2
+
+#Create vSwitch, Virutal Adapters and set VLANs
+​New-VMSwitch -Name Switch1 -AllowManagementOS $False -NetAdapterName DP1,DP2 -EnableEmbeddedTeaming $True
+Set-VMSwitchTeam -Name Switch1 -LoadBalancingAlgorithm Dynamic
+Add-VMNetworkAdapter -ManagementOS -Name MGMT
+Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName MGMT -Access -VlanId 0
+
+
