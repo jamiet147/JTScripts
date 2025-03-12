@@ -1,0 +1,45 @@
+$alertsize = $env:PERCENTAGE_FREE
+
+
+$TimeDate = (Get-Date).tostring("dd-MM-yyyy---hh:mm:ss")
+New-Item c:\temp\CSVChecker.txt -type file -force -value "Last run: $TimeDate"  | Out-Null
+
+
+
+Import-Module FailoverClusters
+
+
+$objs = @()
+$warn = @()
+
+$csvs = Get-ClusterSharedVolume
+foreach ( $csv in $csvs )
+{
+   $csvinfos = $csv | select -Property Name -ExpandProperty SharedVolumeInfo
+   foreach ( $csvinfo in $csvinfos )
+   {
+      $obj = New-Object PSObject -Property @{
+         Name        = $csv.Name
+         Path        = $csvinfo.FriendlyVolumeName
+         Size        = $csvinfo.Partition.Size
+         FreeSpace   = $csvinfo.Partition.FreeSpace
+         UsedSpace   = $csvinfo.Partition.UsedSpace
+         PercentFree = $csvinfo.Partition.PercentFree
+
+      }
+      $CurrentFree = $csvinfo.Partition.PercentFree 
+$Name = $csv.Name
+$FreeSpace   = $csvinfo.Partition.FreeSpace/1024/1024/1024 | ForEach-Object {$_.ToString("00.0")}
+$PercentFree   = $csvinfo.Partition.PercentFree | ForEach-Object {$_.ToString("0.0")}
+
+      If($csvinfo.Partition.PercentFree -le $alertsize) {$warn += $obj}
+      $objs += $obj
+   }
+}
+if(!$warn) {write-host "No Alerts" exit 0}
+else {$output += $warn | fl Name,Path,@{ Label = "Size(GB)" ; Expression = { "{0:N2}" -f ($_.Size/1024/1024/1024) } },@{ Label = "FreeSpace(GB)" ; Expression = { "{0:N2}" -f ($_.FreeSpace/1024/1024/1024) } },@{ Label = "UsedSpace(GB)" ; Expression = { "{0:N2}" -f ($_.UsedSpace/1024/1024/1024) } },@{ Label = "PercentFree" ; Expression = { "{0:N2}" -f ($_.PercentFree) } } | out-string
+Write-Host "<-Start Result->"
+write-host "CSMON_ResultMessage=Warning: A CSV on this site is running out of space. $output" 
+Write-Host "<-End Result->"
+exit 1
+}
