@@ -1,0 +1,10 @@
+#Get SID
+Get-VM 'SCH-SERVER1' | Select-Object VMID
+
+#Grant SID full access to files
+icacls "C:\ClusterStorage\CSV1\VMs\SCH-SERVER1\Virtual Hard Disks\SCH-SERVER1-C.vhdx" /grant ff3bae51-651d-4203-b5d8-e4dd69b0374c:F
+icacls "C:\ClusterStorage\CSV1\VMs\SCH-SERVER1\Virtual Machines\FF3BAE51-651D-4203-B5D8-E4DD69B0374C.xml" /grant ff3bae51-651d-4203-b5d8-e4dd69b0374c:F
+icacls "C:\ClusterStorage\CSV1\VMs\SCH-SERVER1\Virtual Machines\FF3BAE51-651D-4203-B5D8-E4DD69B0374C\FF3BAE51-651D-4203-B5D8-E4DD69B0374C.bin" /grant ff3bae51-651d-4203-b5d8-e4dd69b0374c:F
+icacls "C:\ClusterStorage\CSV1\VMs\SCH-SERVER1\Virtual Machines\FF3BAE51-651D-4203-B5D8-E4DD69B0374C\FF3BAE51-651D-4203-B5D8-E4DD69B0374C.vsv" /grant ff3bae51-651d-4203-b5d8-e4dd69b0374c:F
+
+
