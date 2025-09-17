@@ -1,6 +1,6 @@
 <#
     Date:	23/11/2020
-    Author: Elemér Gazda and Jamie Tibbits, Medhurst Communications
+    Author: Elemér Gazda and Jamie Tibbits
     Description:	Script to audit device and save it in a CSV
   1.0.0  - 23/11/2020 - EG - Initial release
   2.0.2  - 01/12/2020 - JT - Added Manufacturer column
@@ -8,18 +8,19 @@
   2.0.4  - 08/12/2020 - JT - Shows free disk space in new column
   2.0.5  - 23/12/2020 - JT - Changed the source of the username
   2.0.6  - 24/12/2020 - JT - Added additional network info
-	2.0.7  - 19/03/2020 - JT - Temporarily disabled the external IP query
+  2.0.7  - 19/03/2020 - JT - Temporarily disabled the external IP query
   2.0.8  - 06/05/2021 - EG - BugFix so that it exports multiple entries for the HDDs or Network Adapters if there are multiples, in the same cell
-                                Added External IP value (might stil fail due to proxy settings, though)
+                                Added External IP value (might stil fail due to proxy settings)
                                 Added the nicer OU to be output
   2.0.9  - 06/05/2021 - JT - Added BitLocker information
   2.0.10 - 06/05/2021 - JT - Updated MacAddress
   2.0.11 - 16/06/2021 - JT - Added Monitor, Graphics and BIOS information
   2.0.12 - 05/07/2021 - JT - Updated External IP query
   2.0.13 - 18/08/2021 - JT - Bugfix as script failing on laptops with no external monitor
+  2.0.14 - 17/09/2025 - JT - Removed any private API keys
 #>
 
-$Version = "2.0.13"
+$Version = "2.0.14"
 
 ##Customer
 $Company = "SchoolNameHere"
@@ -70,8 +71,7 @@ Function Get-ComputerOU{
 
 Function Get-ExternalIP{
     Try{
-        #$ExternalIP = (Invoke-WebRequest -uri "http://ifconfig.me/ip").Content
-        $ExternalIP = (Invoke-RestMethod http://ipinfo.io/json?token=0e009d9758022b | Select -exp ip)
+                $ExternalIP = (Invoke-RestMethod http://ipinfo.io/json?token=_API_KEY_GOES_HERE | Select -exp ip)
         }
     Catch{
         $ExternalIP = "XX.XX.XX.XX"
