@@ -1,0 +1,458 @@
+<#
+    Date:	23/11/2020
+    Author: Elemér Gazda and Jamie Tibbits
+    Description:	Script to audit device and save it in a CSV
+  1.0.0  - 23/11/2020 - EG - Initial release
+  2.0.2  - 01/12/2020 - JT - Added Manufacturer column
+  2.0.3  - 03/12/2020 - JT - Updated username column, Added API details for ExtIP
+  2.0.4  - 08/12/2020 - JT - Shows free disk space in new column
+  2.0.5  - 23/12/2020 - JT - Changed the source of the username
+  2.0.6  - 24/12/2020 - JT - Added additional network info
+  2.0.7  - 19/03/2020 - JT - Temporarily disabled the external IP query
+  2.0.8  - 06/05/2021 - EG - BugFix so that it exports multiple entries for the HDDs or Network Adapters if there are multiples, in the same cell
+                                Added External IP value (might stil fail due to proxy settings)
+                                Added the nicer OU to be output
+  2.0.9  - 06/05/2021 - JT - Added BitLocker information
+  2.0.10 - 06/05/2021 - JT - Updated MacAddress
+  2.0.11 - 16/06/2021 - JT - Added Monitor, Graphics and BIOS information
+  2.0.12 - 05/07/2021 - JT - Updated External IP query
+  2.0.13 - 18/08/2021 - JT - Bugfix as script failing on laptops with no external monitor
+  2.0.14 - 17/09/2025 - JT - Removed any private API keys
+#>
+
+$Version = "2.0.14"
+
+##Customer
+$Company = "SchoolNameHere"
+    
+##File Location
+$UploadPath = "\\FileServer\LogOnFiles$\Audits"
+
+$Text = ""
+
+Function Get-ComputerOU{
+    $OUString = ""
+    If((Get-WmiObject -Class Win32_ComputerSystem).PartOfDomain){
+        # Device is domain joined
+        $Filter = "(&(objectCategory=Computer)(Name=$env:computername))"
+
+        $DirectorySearcher = New-Object System.DirectoryServices.DirectorySearcher
+        $DirectorySearcher.Filter = $Filter
+        $SearcherPath = $DirectorySearcher.FindOne()
+        $DName = $SearcherPath.GetDirectoryEntry().DistinguishedName
+        [string]$DistinguishedName = $DNAME
+    
+
+        [array]$OUArray = $DistinguishedName.Split(",")
+        $OUArray = $OUArray | Select -Last $($OUArray.Count -1)
+
+        For($i = 0; ($i -lt $OUArray.Count) -and ($OUArray[$i].SubString(0,3) -ne "DC=" ); $i++)
+        {
+            # Getting the first element where the domain starts
+            # This bit is relevant further down as I am using the value of $i
+        }
+
+        $OuArray = $OUArray | Foreach{$_.SubString($_.IndexOf("=")+1)}
+
+        While($i -ne $($OUArray.Count - 1;)){
+            $OuArray[$i] += "." + $OuArray[$i+1]
+            $OUArray = $OuArray | ? { $_ -ne $OuArray[$i+1]}
+        }
+
+        [array]::Reverse($OUArray)
+        $OUString = $OuArray -join "\"
+    }
+    else{
+        #Device is not domain Joined Getting Workgroup name
+        [string]$OUString = (Get-WmiObject -Class Win32_ComputerSystem).Workgroup
+    }
+    return $OUString
+}
+
+Function Get-ExternalIP{
+    Try{
+                $ExternalIP = (Invoke-RestMethod http://ipinfo.io/json?token=_API_KEY_GOES_HERE | Select -exp ip)
+        }
+    Catch{
+        $ExternalIP = "XX.XX.XX.XX"
+    }
+    return $ExternalIP
+}
+
+
+
+Function Get-BitlockerStatus{
+    Try{
+        $BitLockerStatus = Get-BitLockerVolume | Select-Object -ExpandProperty VolumeStatus
+        }
+    Catch{
+        $BitLockerStatus = "XX"
+    }
+    return $BitLockerStatus
+}
+
+
+
+
+Function Get-MonitorMake{
+    Try{
+        $MonitorMake = gwmi WmiMonitorID -Namespace root\wmi | ForEach-Object {($_.ManufacturerName -ne 0 | foreach {[char]$_}) -join ""}
+        }
+    Catch{
+        $MonitorMake = "XX"
+    }
+    return $MonitorMake
+}
+
+
+
+
+Function Get-MonitorModel{
+    Try{
+        $MonitorModel = gwmi WmiMonitorID -Namespace root\wmi | ForEach-Object {($_.UserFriendlyName -ne 0 | foreach {[char]$_}) -join ""}
+        }
+    Catch{
+        $MonitorModel = "XX"
+    }
+    return $MonitorModel
+}
+
+
+
+
+Function Get-MonitorSerial{
+    Try{
+        $MonitorSerial = gwmi WmiMonitorID -Namespace root\wmi | ForEach-Object {($_.SerialNumberID -ne 0 | foreach {[char]$_}) -join ""}
+        }
+    Catch{
+        $MonitorSerial = "XX"
+    }
+    return $MonitorSerial
+}
+
+
+
+
+
+
+Function Create-CustomView ([string]$ViewName){
+    $ViewsRootFolder = "C:\ProgramData\Microsoft\Event Viewer\Views"
+
+    [xml]$RawFilter = "<ViewerConfig>
+	    <QueryConfig>
+		    <QueryParams>
+			    <Simple>
+				    <Channel></Channel>
+				    <Source></Source>
+				    <RelativeTimeInfo>0</RelativeTimeInfo>
+				    <BySource>True</BySource>
+				    <EventId>100</EventId>
+			    </Simple>
+		    </QueryParams>
+		    <QueryNode>
+			    <Name>text</Name>
+			    <QueryList>
+				    <Query Id=`"0`">
+					    <Select Path=`"`">text</Select>
+				    </Query>
+			    </QueryList>
+		    </QueryNode>
+	    </QueryConfig>
+    </ViewerConfig>"
+
+    # Creating the Medhurst Folder if doesn't exist
+    If(!(Test-Path "$ViewsRootFolder\$LogName" -PathType Container)){
+        $TempText = "The folder `"$ViewsRootFolder\$LogName`" does not exist, creating it."
+        $EventID = 101
+        $EntryType = "Information"
+        Write-EventLog –LogName $LogName –Source $EventSource –EntryType $EntryType –EventID "$EventID" –Message $TempText -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Force -Path "$ViewsRootFolder\$LogName" | Out-Null
+    }
+
+    $RawFilter.ViewerConfig.QueryConfig.QueryNode.QueryList.Query.Select.Path = $LogName
+    $RawFilter.ViewerConfig.QueryConfig.QueryParams.Simple.Channel = $LogName
+    $RawFilter.ViewerConfig.QueryConfig.QueryParams.Simple.Source = $EventSource
+
+    If(!(Test-Path "$ViewsRootFolder\$LogName\$ViewName`_100.xml")){
+        # Creating the 100 Event Ids View
+        $TempText = "No View present for these events.`nCreating the 100 Event Ids View as $ViewName`_100.xml."
+        $EventID = 102
+        $EntryType = "Information"
+        Write-EventLog –LogName $LogName –Source $EventSource –EntryType $EntryType –EventID "$EventID" –Message $TempText -ErrorAction SilentlyContinue
+    
+        $RawFilter.ViewerConfig.QueryConfig.QueryNode.Name = "$ViewName 100"
+        $RawFilter.ViewerConfig.QueryConfig.QueryNode.QueryList.Query.Select.'#text' = "*[System[Provider[@Name='$EventSource'] and (EventID=100)]]"
+
+        $RawFilter.OuterXml | Out-File -FilePath "$ViewsRootFolder\$LogName\$ViewName`_100.xml"
+    }
+
+    If(!(Test-Path "$ViewsRootFolder\$LogName\$ViewName`_All.xml")){
+        # Creating the 100 Event Ids View
+        $TempText = "No View present for these events.`nCreating the 100 Event Ids View as $ViewName`_All.xml."
+        $EventID = 103
+        $EntryType = "Information"
+        Write-EventLog –LogName $LogName –Source $EventSource –EntryType $EntryType –EventID "$EventID" –Message $TempText -ErrorAction SilentlyContinue
+    
+        # Creating the All EventIds View
+        $RawFilter.ViewerConfig.QueryConfig.QueryNode.Name = "$ViewName"
+        $RawFilter | Select-Xml -XPath '//*[local-name() = ''EventId'']' | ForEach-Object{$_.Node.ParentNode.RemoveChild($_.Node)} | Out-Null
+        $RawFilter.ViewerConfig.QueryConfig.QueryNode.QueryList.Query.Select.'#text' = "*[System[Provider[@Name='$EventSource']]]"
+
+        $RawFilter.OuterXml | Out-File -FilePath "$ViewsRootFolder\$LogName\$ViewName`_All.xml"
+    }
+
+}
+
+$Error.Clear()
+Try{
+    $StopWatch = [system.diagnostics.stopwatch]::StartNew()
+    $Start = Get-Date -Format "yyyyMMdd_HHmm"
+    $PSVersionandbit = "PS-" + $PSVersionTable.PSVersion.Major.ToString() + "." + $PSVersionTable.PSVersion.Minor.ToString() + "-" +$([System.Runtime.InterOpServices.Marshal]::SizeOf([System.IntPtr]::Zero)*8) + "bit"
+
+    # Create EventLog Source, but do not fail if already exists
+    $EventSource = "Medhurst Script Audit-Device"
+    $LogName = "Medhurst"
+    $LogSize = 20480KB
+    If ((Get-Event -SourceIdentifier $EventSource -ErrorAction SilentlyContinue | Measure-Object).Count -eq 0) {
+        New-EventLog -Source $EventSource -LogName $LogName -ErrorAction SilentlyContinue
+    }
+    $CurrentLogSize = (Get-EventLog -List | Where {$_.Log -eq $LogName} | Select MaximumKilobytes).MaximumKilobytes
+    If ($CurrentLogSize -lt $LogSize){
+        Limit-EventLog -LogName $LogName -MaximumSize $LogSize -OverflowAction OverwriteAsNeeded -ErrorAction SilentlyContinue
+    }
+    $Error.Clear()
+
+
+    ############################### Part from Tibbits Starts here ##############################################
+
+    ##Check if CSV exists
+    if (Test-Path "$UploadPath\$company-DeviceAudit.csv") {
+        ##File already exists
+        $Temptext = "File $UploadPath\$company-DeviceAudit.csv already exists."
+        $EventID = 5
+        $EntryType = "Information"
+        Write-EventLog –LogName $LogName –Source $EventSource –EntryType $EntryType –EventID "$EventID" –Message $TempText -ErrorAction SilentlyContinue
+        $Text += "`n$Temptext"
+        Write-Host $Temptext -ForegroundColor Yellow
+    } else {
+       ##File doesn't exist, Create header row
+       $Temptext = "File  $UploadPath\$company-DeviceAudit.csv doesn't exist, Creating it with the header row."
+       $EventID = 10
+       $EntryType = "Warning"
+       Write-EventLog –LogName $LogName –Source $EventSource –EntryType $EntryType –EventID "$EventID" –Message $TempText -ErrorAction SilentlyContinue
+       "Serial,Hostname,Domain,RAM,CPU,MAC,NetSpeed,NetAdapters,IntIP,ExtIP,DiskSize,DiskFreeSpace,DiskType,Manufacturer,Model,OS,OSBuild,OSArchitecture,Username,LastAudit,LastBoot,Asset,OU,BitLockerStatus,MonitorManufacturer,MonitorModel,MonitorSerial,BIOSVersion,GraphicsCard" | Out-File -FilePath "$UploadPath\$company-DeviceAudit.csv" -Encoding ascii
+       $Text += "`n$Temptext"
+       Write-Host $Temptext -ForegroundColor Yellow
+    }
+
+
+    ##Audit
+    $Temptext = "Gathering Audit Data."
+    $EventID = 15
+    $EntryType = "Information"
+    Write-EventLog –LogName $LogName –Source $EventSource –EntryType $EntryType –EventID "$EventID" –Message $TempText -ErrorAction SilentlyContinue
+    Write-Host $Temptext 
+
+    $SerialNumber = Get-WmiObject win32_bios | Select –ExpandProperty SerialNumber
+    $Hostname = Hostname 
+    $Domain = Get-WmiObject -Class Win32_ComputerSystem | Select –ExpandProperty Domain
+    $RAM = (Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum).sum /1gb
+    $CPU = Get-WmiObject Win32_Processor | Select-Object -ExpandProperty Name
+    $MAC = Get-WmiObject win32_networkadapterconfiguration | select Description, MacAddress | Where-Object { $_.Description -notlike '*WAN*' -and $_.Description -notlike '*Bluetooth*' -and $_.Description -notlike '*Virtual*' } | Select –ExpandProperty MacAddress
+    $MAC = $MAC -join ";"
+    
+    $NetSpeed = Get-WmiObject -Class Win32_NetworkAdapter |  Where-Object { $_.Speed -ne $null -and $_.MACAddress -ne $null -and $_.Name -notlike "*Microsoft*" -and $_.Name -notlike "*Bluetooth*" } | Foreach {"$($_.Speed / 1000000) MB;"}
+    $NetSpeed = $NetSpeed -join ""
+
+    $NetAdapters = Get-WmiObject -Class Win32_NetworkAdapter |  Where-Object { $_.Speed -ne $null -and $_.MACAddress -ne $null -and $_.Name -notlike "*Microsoft*" -and $_.Name -notlike "*Bluetooth*" } | Foreach {"$($_.Name);"}
+    $NetAdapters = $NetAdapters -join ""
+    
+    $IntIP = (Get-WmiObject -Class Win32_NetworkAdapterConfiguration | where {$_.DefaultIPGateway -ne $null}).IPAddress | select-object -first 1
+    
+    $ExtIP = Get-ExternalIP
+    
+    $DiskSize = Get-WmiObject win32_logicaldisk -Filter "drivetype=3" | Foreach {"Size $($_.DeviceID)$($_.Size /1GB);"}
+    $DiskSize = $DiskSize -join ""
+
+    $DiskFreeSpace = Get-WmiObject win32_logicaldisk -Filter "drivetype=3" | Foreach {"Free $($_.DeviceID) $($_.FreeSpace /1GB);"}
+    $DiskFreeSpace = $DiskFreeSpace -join ""
+
+    $DiskType = Get-PhysicalDisk | Select-Object -ExpandProperty MediaType
+    $DiskType = $DiskType -join ""
+
+    $Manufacturer = Get-WMIObject –class Win32_ComputerSystem | Select-Object -ExpandProperty Manufacturer
+    $Model = Get-WMIObject –class Win32_ComputerSystem | Select-Object -ExpandProperty Model
+    $OS = Get-CimInstance Win32_OperatingSystem | Select-Object -ExpandProperty Caption
+    $OSBuild = Get-CimInstance Win32_OperatingSystem | Select-Object -ExpandProperty Version
+    $OSArchitecture = Get-CimInstance Win32_OperatingSystem | Select-Object -ExpandProperty OSArchitecture
+    $Username = (Get-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI -Name LastLoggedOnUser).LastLoggedOnUser
+    $AuditTime = Get-Date
+    $LastBootTime = Get-CimInstance -ClassName win32_operatingsystem | Select-Object -ExpandProperty lastbootuptime
+    $AssetTag = (Get-WmiObject Cim_Chassis | select SMBIOSAssetTag).SMBIOSAssetTag
+    # $OU = ([adsisearcher]"(&(name=$env:computername)(objectClass=computer))").findall().path -replace '^.*?(?=OU=)'
+    $OU = Get-ComputerOU
+    $BitLockerStatus = Get-BitLockerStatus
+    $BitLockerStatus = $BitLockerStatus -join ""
+    $MonitorMake = Get-MonitorMake
+    $MonitorMake = $MonitorMake -join ";"
+    $MonitorModel = Get-MonitorModel
+    $MonitorModel = $MonitorModel -join ";"
+    $MonitorSerial = Get-MonitorSerial
+    $MonitorSerial = $MonitorSerial  -join ";"
+    $BIOSVerion = Get-WmiObject -Class Win32_BIOS  | Select-Object -ExpandProperty SMBIOSBIOSVersion
+    $GraphicsCard = Get-WmiObject -Class win32_VideoController  | Select-Object -ExpandProperty Name
+    $GraphicsCard = $GraphicsCard  -join ";"
+
+    ## Check to see if the device exists in the CSV file
+
+
+    [Array]$csv = Import-Csv "$UploadPath\$company-DeviceAudit.csv"
+    $tobeupdated = $csv | ?{$_.Serial -eq $SerialNumber}
+    if($tobeupdated){
+        #Update CSV
+        $Temptext = "Device already exists in the csv file, updating records."
+        $EventID = 20
+        $EntryType = "Information"
+        Write-EventLog –LogName $LogName –Source $EventSource –EntryType $EntryType –EventID "$EventID" –Message $TempText -ErrorAction SilentlyContinue
+        $Text += "`n$Temptext"
+        Write-Host $Temptext -ForegroundColor Yellow
+
+        $tobeupdated.Hostname = $Hostname
+        $tobeupdated.Domain = $Domain
+        $tobeupdated.RAM = $RAM
+        $tobeupdated.CPU = $CPU
+        $tobeupdated.MAC = $MAC
+        $tobeupdated.NetSpeed = $NetSpeed
+        $tobeupdated.NetAdapters = $NetAdapters
+        $tobeupdated.IntIP = $IntIP
+        $tobeupdated.ExtIP = $ExtIP
+        $tobeupdated.DiskSize = $DiskSize
+        $tobeupdated.DiskFreeSpace = $DiskFreeSpace
+        $tobeupdated.DiskType = $DiskType
+        $tobeupdated.Manufacturer = $Manufacturer
+        $tobeupdated.Model = $Model
+        $tobeupdated.OS = $OS
+        $tobeupdated.OSBuild = $OSBuild
+        $tobeupdated.OSArchitecture = $OSArchitecture
+        $tobeupdated.Username = $Username
+        $tobeupdated.LastAudit = $AuditTime
+        $tobeupdated.LastBoot = $LastBootTime
+        $tobeupdated.Asset = $AssetTag
+        $tobeupdated.OU = $OU
+        $tobeupdated.BitLockerStatus = $BitLockerStatus
+        $tobeupdated.MonitorManufacturer = $MonitorMake
+        $tobeupdated.MonitorModel = $MonitorModel
+        $tobeupdated.MonitorSerial = $MonitorSerial
+        $tobeupdated.BIOSVersion = $BIOSVerion
+        $tobeupdated.GraphicsCard = $GraphicsCard
+
+
+        $Temptext = "Updating device in .csv."
+        $EventID = 25
+        $EntryType = "Information"
+        Write-EventLog –LogName $LogName –Source $EventSource –EntryType $EntryType –EventID "$EventID" –Message $TempText -ErrorAction SilentlyContinue
+        $Text += "`n$Temptext"
+
+        $csv | Export-Csv "$UploadPath\$company-DeviceAudit.csv" -NoTypeInformation
+
+    } else{
+        #Add new record to CSV
+
+        $Temptext = "Device is not yet present in the csv file, adding it."
+        $EventID = 30
+        $EntryType = "Information"
+        Write-EventLog –LogName $LogName –Source $EventSource –EntryType $EntryType –EventID "$EventID" –Message $TempText -ErrorAction SilentlyContinue
+        $Text += "`n$Temptext"
+        Write-Host $Temptext -ForegroundColor Green
+
+        $tobeupdated = New-Object PSObject 
+        $tobeupdated | Add-Member -type NoteProperty -name Serial -value $SerialNumber
+        $tobeupdated | Add-Member -type NoteProperty -name Hostname -value $Hostname
+        $tobeupdated | Add-Member -type NoteProperty -name Domain -value $Domain
+        $tobeupdated | Add-Member -type NoteProperty -name RAM -value $RAM
+        $tobeupdated | Add-Member -type NoteProperty -name CPU -value $CPU
+        $tobeupdated | Add-Member -type NoteProperty -name MAC -value $MAC
+        $tobeupdated | Add-Member -type NoteProperty -name NetSpeed -value $NetSpeed
+        $tobeupdated | Add-Member -type NoteProperty -name NetAdapters -value $NetAdapters
+        $tobeupdated | Add-Member -type NoteProperty -name IntIP -value $IntIP
+        $tobeupdated | Add-Member -type NoteProperty -name ExtIP -value $ExtIP
+        $tobeupdated | Add-Member -type NoteProperty -name DiskSize -value $DiskSize
+        $tobeupdated | Add-Member -type NoteProperty -name DiskFreeSpace -value $DiskFreeSpace
+        $tobeupdated | Add-Member -type NoteProperty -name DiskType -value $DiskType
+        $tobeupdated | Add-Member -type NoteProperty -name Manufacturer -value $Manufacturer
+        $tobeupdated | Add-Member -type NoteProperty -name Model -value $Model
+        $tobeupdated | Add-Member -type NoteProperty -name OS -value $OS
+        $tobeupdated | Add-Member -type NoteProperty -name OSBuild -value $OSBuild
+        $tobeupdated | Add-Member -type NoteProperty -name OSArchitecture -value $OSArchitecture
+        $tobeupdated | Add-Member -type NoteProperty -name Username -value $Username
+        $tobeupdated | Add-Member -type NoteProperty -name LastAudit -value $AuditTime
+        $tobeupdated | Add-Member -type NoteProperty -name LastBoot -value $LastBootTime
+        $tobeupdated | Add-Member -type NoteProperty -name Asset -value $AssetTag
+        $tobeupdated | Add-Member -type NoteProperty -name OU -value $OU
+        $tobeupdated | Add-Member -type NoteProperty -name BitLockerStatus -value $BitLockerStatus
+        $tobeupdated | Add-Member -type NoteProperty -name MonitorManufacturer -value $MonitorMake
+        $tobeupdated | Add-Member -type NoteProperty -name MonitorModel -value $MonitorModel
+        $tobeupdated | Add-Member -type NoteProperty -name MonitorSerial -value $MonitorSerial
+        $tobeupdated | Add-Member -type NoteProperty -name BIOSVersion -value $BIOSVerion
+        $tobeupdated | Add-Member -type NoteProperty -name GraphicsCard -value $GraphicsCard 
+        $csv += $tobeupdated
+
+        $Temptext = "Adding row to .csv."
+        $EventID = 50
+        $EntryType = "Information"
+        Write-EventLog –LogName $LogName –Source $EventSource –EntryType $EntryType –EventID "$EventID" –Message $TempText -ErrorAction SilentlyContinue
+        $Text += "`n$Temptext"
+        Write-Host $Temptext -ForegroundColor Yellow
+
+        # $csv | Export-Csv "$UploadPath\$company-DeviceAudit.csv" -NoTypeInformation
+        Export-Csv "$UploadPath\$company-DeviceAudit.csv" -InputObject $tobeUpdated -Append -Force
+    }
+
+
+
+############################### Part from Tibbits Ends here ##############################################
+
+    $EntryType = "Information"
+    $ExitInt = 0
+
+}
+Catch {
+    $LineNumber = $_.InvocationInfo.ScriptLineNumber
+    $Line = $_.InvocationInfo.Line
+    $Text =  "$Error Error occured on line $LineNumber of the script, while executing $Line."
+    $EntryType = "Error"
+    $ExitInt = 1
+    Write-Host $Text -ForegroundColor Red
+}
+Finally{
+    Write-Output "Finished running script $($myInvocation.MyCommand) - $($myInvocation.ScriptName) - $($myInvocation.InvocationName), it took $([int]$StopWatch.Elapsed.TotalSeconds) seconds to run."
+    $Message = "Finished running script $($myInvocation.MyCommand) - $($myInvocation.ScriptName) - $($myInvocation.InvocationName), it took $([int]$StopWatch.Elapsed.TotalSeconds) seconds to run."
+
+    Write-Output "Script execution started at $Start"
+    $Message += "`n`nStart`t`t: $Start"
+
+    Write-Output "Version of the script is $version"
+    $Message += "`nVersion`t`t: $Version"
+
+    Write-Output "ExitInt=$ExitInt"
+    $Message += "`nExitInt`t: $ExitInt"
+
+    Write-Output "Text=$Text"
+    $Message += "`nText`t: $Text"
+
+    Write-Output "PowerShell Version and bit=$PSVersionandbit"
+    $Message += "`nPowerShell Version and bit`t: $PSVersionandbit"
+
+    Write-Output "<-End Diagnostic->"
+
+    Write-EventLog –LogName $LogName –Source $EventSource –EntryType $EntryType –EventID "100" –Message $Message -ErrorAction SilentlyContinue
+
+     Try{
+        If($ExitInt -eq 1){
+            Create-CustomView -ViewName "AEM Monitored-Feature"
+        }
+    }
+    Catch{}
+
+    Exit $ExitInt
+}
